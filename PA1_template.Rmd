@@ -1,0 +1,179 @@
+---
+title: 'Reproducible Research: Peer Assessment 1'
+output: 
+  html_document:
+    keep_md: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r, echo=FALSE}
+
+rm(list = ls())
+
+# Libraries =======================
+library(lattice)
+library(dplyr)
+
+# Set download date ===============
+DataSetEj1<-Sys.Date()
+
+# Set working directory ======================
+setwd("C:/Users/condgabriela/Curso R/Reproducible Research")
+
+# Create working directories========
+if (!file.exists(("data"))){ dir.create("data")}
+if (!file.exists(("code"))){dir.create("code")}
+if (!file.exists(("plots"))){dir.create("plots")}
+
+# Unzip file========
+
+unzip("repdata_data_activity.zip", exdir = "./data")
+
+
+```
+
+
+## Loadind and preprocessing data
+```{r}
+
+
+# Read data=================================================
+
+activity <- read.csv("./data/activity.csv", header = TRUE, sep = ",", stringsAsFactors = FALSE)
+activity$date<-as.Date(activity$date)
+
+```
+
+## What is mean total number of steps taken per day?
+```{r}
+
+
+act_by_day<-group_by(activity, date)%>%
+          summarize(steps = sum(steps, na.rm = TRUE))
+
+```
+
+
+
+```{r, echo=FALSE}
+hist(act_by_day$steps, main = "Total steps by day", xlab = "Steps", breaks = 10, col = "blue")
+```
+
+
+```{r}
+
+#Mean steps taken per day
+mean(act_by_day$steps)
+
+#Median of steps taken per day
+median(act_by_day$steps)
+
+```
+
+## What is the average daily activity pattern?
+
+```{r}
+
+act_interval<-group_by(activity, interval)%>%
+  summarize(steps = mean(steps, na.rm = TRUE))
+
+```
+
+
+```{r, echo=FALSE}
+
+plot(act_interval$interval, act_interval$steps, type = "l", xlab = "5-minute interval",
+     ylab = "average steps taken",  pch = 20, col = "blue", lwd = 3)
+```
+
+
+```{r}
+# 5-minute interval with the maximum number of steps
+act_interval$interval[which.max(act_interval$steps)]
+
+```
+
+## Imputing missing values
+```{r}
+na_steps<-c(which(is.na(activity$steps)))
+length(na_steps)
+
+#For imputing missing values, the mean of each of interval is selected.
+
+median_act_day<-group_by(activity, interval)%>% 
+  summarize(steps = mean(steps, na.rm = TRUE))
+
+activity_dup<-activity
+
+for (i in 1:length(activity_dup$steps)){
+  for (j in 1:length(median_act_day$steps)){
+    if (is.na(activity_dup[i, 1]) == TRUE) {
+      activity_dup[i, 1] = median_act_day[j, 2]
+      
+    }
+  }
+}    
+
+
+act_by_day_smooth<-group_by(activity_dup, date)%>%
+  summarize(steps = sum(steps, na.rm = TRUE))
+
+```
+
+```{r, echo=FALSE}
+
+hist(act_by_day_smooth$steps, main = "Total steps by day (smoothed)", xlab = "Steps", 
+     breaks = 10, col = "blue")
+
+```
+
+
+
+```{r}
+
+#Mean steps taken per day
+mean(act_by_day_smooth$steps)
+
+#Median of steps taken per day
+median(act_by_day_smooth$steps)
+
+
+```
+
+## Are there differences in activity patterns between weekdays and weekends?
+
+```{r}
+
+activity_dup$weekdays<-weekdays(activity_dup$date)
+
+activity_dup$weekdays[activity_dup$weekdays %in% c("lunes", "martes", 
+                                                   "miércoles", "jueves", "viernes")]<-"weekday"
+
+
+activity_dup$weekdays[activity_dup$weekdays %in% c("sábado", "domingo")]<-"weekend"
+activity_dup$weekdays<-as.factor(activity_dup$weekdays)
+
+act_by_weekday<-group_by(activity_dup, interval, weekdays)%>%
+  summarize(steps = mean(steps, na.rm = TRUE)) 
+
+
+```
+
+
+```{r, echo=FALSE}
+
+xyplot(steps ~ interval | weekdays, data = act_by_weekday, layout = c(1,2), type = "l", lwd = 3,
+       ylab = "average steps by interval", col = "blue")
+
+```
+
+```{r}
+
+# On weekdays, activity starts around 5am, peaks around 8 - 9 am and slows down form 8pm.
+# On weekends, activity starts around 8am and keeps a more upbeat pace than on weekdays. It diminishes past 8pm.
+
+```
